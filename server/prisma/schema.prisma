@@ -1,0 +1,127 @@
+generator client {
+ provider = "prisma-client-js"
+}
+datasource db {
+ provider = "postgresql"
+ url = env("DATABASE_URL")
+}
+
+enum Role {
+ ADMIN
+ RECRUITER
+ HIRING_MANAGER
+}
+enum Stage {
+ ADDED
+ SCREENING
+ SUBMITTED
+ INTERVIEW
+ SELECTED
+ REJECTED
+}
+enum JobStatus {
+ OPEN
+ CLOSED
+ ON_HOLD
+ FILLED
+}
+enum InterviewStatus {
+ SCHEDULED
+ COMPLETED
+ CANCELLED
+ NO_SHOW
+}
+model User {
+ id String @id @default(cuid())
+ name String
+ email String @unique
+ passwordHash String
+ role Role @default(RECRUITER)
+ sessionVersion Int @default(0)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ jobs Job[] @relation("Recruiter")
+ managedJobs Job[] @relation("Manager")
+ candidates Candidate[]
+ submissions Submission[]
+ activities Activity[]
+}
+model Candidate {
+ id String @id @default(cuid())
+ name String
+ email String @unique
+ phone String
+ location String
+ skills String[]
+ experience Float
+ currentCompany String?
+ resumeUrl String?
+ stage Stage @default(ADDED)
+ recruiterId String
+ recruiter User @relation(fields:[recruiterId],references:[id])
+ submissions Submission[]
+ activities Activity[]
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ @@index([recruiterId,createdAt])
+}
+model Job {
+ id String @id @default(cuid())
+ title String
+ company String
+ description String
+ skills String[]
+ location String
+ employmentType String
+ salaryMin Int
+ salaryMax Int
+ experienceRequired Float
+ status JobStatus @default(OPEN)
+ recruiterId String
+ recruiter User @relation("Recruiter",fields:[recruiterId],references:[id])
+ hiringManagerId String?
+ hiringManager User? @relation("Manager",fields:[hiringManagerId],references:[id])
+ submissions Submission[]
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ @@index([hiringManagerId,status])
+}
+model Submission {
+ id String @id @default(cuid())
+ candidateId String
+ candidate Candidate @relation(fields:[candidateId],references:[id],onDelete:Cascade)
+ jobId String
+ job Job @relation(fields:[jobId],references:[id],onDelete:Cascade)
+ recruiterId String
+ recruiter User @relation(fields:[recruiterId],references:[id])
+ status Stage @default(SUBMITTED)
+ notes String @default("")
+ interviews Interview[]
+ submittedAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ @@unique([candidateId,jobId])
+ @@index([recruiterId,status])
+}
+model Interview {
+ id String @id @default(cuid())
+ submissionId String
+ submission Submission @relation(fields:[submissionId],references:[id],onDelete:Cascade)
+ scheduledAt DateTime
+ type String
+ status InterviewStatus @default(SCHEDULED)
+ interviewer String
+ notes String @default("")
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ @@index([scheduledAt])
+}
+model Activity {
+ id String @id @default(cuid())
+ userId String
+ user User @relation(fields:[userId],references:[id])
+ candidateId String?
+ candidate Candidate? @relation(fields:[candidateId],references:[id],onDelete:SetNull)
+ action String
+ metadata Json @default("{}")
+ createdAt DateTime @default(now())
+}
